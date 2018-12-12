@@ -16,6 +16,7 @@ var verifToken = os.Getenv("SLACK_VERIF_TOKEN")
 var api = slack.New(authToken)
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	if authToken == "" {
 		log.Println("bad auth token")
 	}
@@ -53,13 +54,15 @@ func gsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	body := buf.String()
 	log.Println(body)
-	eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: verifToken}))
+	messageEvent, err := slackevents.ParseActionEvent(body, slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: verifToken}))
 	if err != nil {
+		log.Println("json bad..")
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	log.Println(messageEvent)
 
-	if eventsAPIEvent.Type == slackevents.URLVerification {
+	if messageEvent.Type == slackevents.URLVerification {
 		var r *slackevents.ChallengeResponse
 		err := json.Unmarshal([]byte(body), &r)
 		if err != nil {
@@ -72,14 +75,8 @@ func gsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 		}
 	}
-	if eventsAPIEvent.Type == slackevents.CallbackEvent {
-		innerEvent := eventsAPIEvent.InnerEvent
-		switch ev := innerEvent.Data.(type) {
-		case *slackevents.AppMentionEvent:
-			_, _, err = api.PostMessage(ev.Channel, slack.MsgOptionText("Yes, hello.", false))
-			if err != nil {
-				log.Println(err)
-			}
-		}
+	_, _, err = api.PostMessage(messageEvent.Channel.ID, slack.MsgOptionText("Yes, hello.", false))
+	if err != nil {
+		log.Println(err)
 	}
 }
