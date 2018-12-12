@@ -10,8 +10,19 @@ import (
 	"net/http"
 	"os"
 )
-var api = slack.New("")
+var authToken = os.Getenv("SLACK_TOKEN")
+var verifToken = os.Getenv("SLACK_VERIF_TOKEN")
+
+var api = slack.New(authToken)
+
 func main() {
+	if authToken == "" {
+		log.Println("bad auth token")
+	}
+	if verifToken == "" {
+		log.Println("bad verif token")
+	}
+
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/gs", gsHandler)
 
@@ -42,9 +53,9 @@ func gsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	body := buf.String()
 	log.Println(body)
-	eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: "me06Zd6Q1gYvyvgiJbj16ETU"}))
+	eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: verifToken}))
 	if err != nil {
-		log.Println("bad message?")
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
@@ -52,6 +63,7 @@ func gsHandler(w http.ResponseWriter, r *http.Request) {
 		var r *slackevents.ChallengeResponse
 		err := json.Unmarshal([]byte(body), &r)
 		if err != nil {
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		w.Header().Set("Content-Type", "text")
