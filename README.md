@@ -2,7 +2,7 @@
 
 Open cloud console 
 
-git clone 
+go get chriswalz/GoSecretSlackAppEngine (don't use git clone even though that's suggested in the tutorial..)
 
 go run . (to test)
 

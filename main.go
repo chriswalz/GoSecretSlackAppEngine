@@ -41,6 +41,7 @@ func gsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 	body := buf.String()
+	log.Println(body)
 	eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: "me06Zd6Q1gYvyvgiJbj16ETU"}))
 	if err != nil {
 		log.Println("bad message?")
