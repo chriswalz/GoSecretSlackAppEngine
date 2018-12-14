@@ -1,21 +1,24 @@
-#Running on App Engine 
+# GoSecret Slack Client 
 
-Open cloud console 
+##### Setting up local
 
-go get -u github.com/chriswalz/GoSecretSlackAppEngine (don't use git clone even though that's suggested in the tutorial..)
+`git clone https://github.com/chriswalz/GoSecretSlackAppEngine.git`
 
-go run . (to test)
+These two constants need to be created in sensitive/config.go:
+`SLACK_TOKEN, SLACK_VERIF_TOKEN`
 
-gcloud app deploy (to deploy)
+#####Running on App Engine 
+
+`cd GoSecretSlackAppEngine` (where app.yaml file is)
+
+`gcloud app deploy --quiet`
+
+##### Debugging App Engine deployment
+
+`gcloud app logs tail`
 
 
 
 
-setting env variable 
-env_variables:
-  SLACK_TOKEN: ''
-  SLACK_VERIF_TOKEN: ''
+
   
-## Debugging 
-
-gcloud app logs tail -s default

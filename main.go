@@ -4,25 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/nlopes/slack"
-	"github.com/nlopes/slack/slackevents"
+	"github.com/google/jsonapi"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 )
-var authToken = os.Getenv("SLACK_TOKEN")
-var verifToken = os.Getenv("SLACK_VERIF_TOKEN")
-
-var api = slack.New(authToken)
 
 func main() {
+	log.Println(runtime.GOOS)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	if authToken == "" {
-		log.Println("bad auth token")
-	}
-	if verifToken == "" {
-		log.Println("bad verif token")
-	}
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/gs", gsHandler)
@@ -42,40 +34,63 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	fmt.Fprint(w, "This is index - see gs!")
+	_, err := fmt.Fprint(w, "GoSecret Slack engine is running. Have slack command call /gs endpoint!")
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func gsHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("gs hit")
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r.Body)
+	err := r.ParseForm()
 	if err != nil {
 		log.Println(err)
-	}
-	body := buf.String()
-	log.Println(body)
-	messageEvent, err := slackevents.ParseActionEvent(body, slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: verifToken}))
-	if err != nil {
-		log.Println("json bad..")
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-	log.Println(messageEvent)
+		http.Error(w, err.Error(), http.StatusMethodNotAllowed)
 
-	if messageEvent.Type == slackevents.URLVerification {
-		var r *slackevents.ChallengeResponse
-		err := json.Unmarshal([]byte(body), &r)
-		if err != nil {
-			log.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		w.Header().Set("Content-Type", "text")
-		_, err = w.Write([]byte(r.Challenge))
-		if err != nil {
-			log.Println(err)
-		}
 	}
-	_, _, err = api.PostMessage(messageEvent.Channel.ID, slack.MsgOptionText("Yes, hello.", false))
+
+	// receive message from slack server
+	type PayloadReq struct {
+		Data struct {
+			Type       string `json:"type"`
+			Attributes struct {
+				Message  string `json:"message"`
+				Password string `json:"password"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	payloadReq := PayloadReq{}
+	payloadReq.Data.Type = "Secrets"
+	payloadReq.Data.Attributes.Message = r.FormValue("text")
+	jsonBody, err := json.Marshal(&payloadReq)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// send message to GoSecret.io then receive response from GoSecret.io
+	resp, err := http.Post("https://www.gosecret.io/api/create", jsonapi.MediaType, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		log.Println(err)
+	}
+	payloadResp := PayloadReq{}
+	bodyB, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+	}
+	err = json.Unmarshal(bodyB, &payloadResp)
+	if err != nil {
+		log.Println(err)
+	}
+
+	jsonResp, _ := json.Marshal(struct {
+		Type string `json:"response_type"`
+		Text string `json:"text"`
+	}{
+		Type: "in_channel",
+		Text: fmt.Sprintf("_GoSecret message made with_ \"/gs [msg]\"\n%s", "https://www.gosecret.io"+payloadResp.Data.Attributes.Message),
+	})
+	// send to a response url (instead of using ResponseWriter) for a "delayed response" to prevent command text from being echoed in Slack
+	_, _ = http.Post(r.FormValue("response_url"), jsonapi.MediaType, bytes.NewBuffer(jsonResp))
 	if err != nil {
 		log.Println(err)
 	}
