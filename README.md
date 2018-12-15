@@ -1,4 +1,5 @@
-## Using the Slack Client is inherently less secure than using gosecret.io directly. For very sensitive information we recommend using gosecret.io directly
+### Warning
+Using the Slack Client is inherently less secure than using gosecret.io directly. For very sensitive information we recommend using gosecret.io directly
 
 # GoSecret Slack Client 
 
